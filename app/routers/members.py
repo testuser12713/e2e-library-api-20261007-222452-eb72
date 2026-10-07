@@ -2,14 +2,22 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.deps import get_db, require_api_key
+from app.models import Member
 from app.schemas.common import Page, PaginationParams
 from app.schemas.members import MemberCreate, MemberRead, MemberUpdate
+from app.services import members as member_service
 
 router = APIRouter(prefix="/members", tags=["members"])
+
+
+def _read(db: Session, member: Member) -> MemberRead:
+    """Serialise one member together with its current open-loan count."""
+
+    return member_service.to_read(member, member_service.open_loan_count(db, member.id))
 
 
 @router.get("", response_model=Page[MemberRead])
@@ -17,9 +25,19 @@ def list_members(
     db: Annotated[Session, Depends(get_db)],
     pagination: Annotated[PaginationParams, Depends()],
 ) -> Page[MemberRead]:
-    """List members."""
+    """List members in a pagination envelope, sorted by name then id."""
 
-    raise HTTPException(status_code=501, detail="members #3 implements this")
+    members, total = member_service.list_members(
+        db, limit=pagination.limit, offset=pagination.offset
+    )
+    counts = member_service.open_loan_counts(db, [member.id for member in members])
+    items = [member_service.to_read(member, counts.get(member.id, 0)) for member in members]
+    return Page[MemberRead](
+        items=items,
+        total=total,
+        limit=pagination.limit,
+        offset=pagination.offset,
+    )
 
 
 @router.post(
@@ -34,7 +52,8 @@ def create_member(
 ) -> MemberRead:
     """Create a new member."""
 
-    raise HTTPException(status_code=501, detail="members #3 implements this")
+    member = member_service.create_member(db, payload)
+    return _read(db, member)
 
 
 @router.get("/{member_id}", response_model=MemberRead)
@@ -44,7 +63,8 @@ def get_member(
 ) -> MemberRead:
     """Return a single member by id."""
 
-    raise HTTPException(status_code=501, detail="members #3 implements this")
+    member = member_service.get_member(db, member_id)
+    return _read(db, member)
 
 
 @router.put(
@@ -59,7 +79,8 @@ def replace_member(
 ) -> MemberRead:
     """Replace a member's fields."""
 
-    raise HTTPException(status_code=501, detail="members #3 implements this")
+    member = member_service.update_member(db, member_id, payload)
+    return _read(db, member)
 
 
 @router.patch(
@@ -74,7 +95,8 @@ def update_member(
 ) -> MemberRead:
     """Update selected fields of a member."""
 
-    raise HTTPException(status_code=501, detail="members #3 implements this")
+    member = member_service.update_member(db, member_id, payload)
+    return _read(db, member)
 
 
 @router.delete(
@@ -88,4 +110,4 @@ def delete_member(
 ) -> None:
     """Delete a member."""
 
-    raise HTTPException(status_code=501, detail="members #3 implements this")
+    member_service.delete_member(db, member_id)
