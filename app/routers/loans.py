@@ -2,11 +2,12 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.deps import get_db, require_api_key
 from app.schemas.loans import LoanCreate, LoanRead
+from app.services import loans as loans_service
 
 router = APIRouter(prefix="/loans", tags=["loans"])
 
@@ -23,7 +24,7 @@ def create_loan(
 ) -> LoanRead:
     """Create a loan if the member and the book allow it."""
 
-    raise HTTPException(status_code=501, detail="loans #4 implements this")
+    return loans_service.create_loan(db, payload)
 
 
 @router.post(
@@ -37,4 +38,4 @@ def return_loan(
 ) -> LoanRead:
     """Mark a loan as returned and free its copy."""
 
-    raise HTTPException(status_code=501, detail="loans #4 implements this")
+    return loans_service.return_loan(db, loan_id)
